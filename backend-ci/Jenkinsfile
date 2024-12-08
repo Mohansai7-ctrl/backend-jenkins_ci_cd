@@ -1,11 +1,11 @@
-@Library('jenkins-shared-library') _ // gets the global pipeline libraries in system configuration
+@Library('jenkins-shared-library') _ // gets the global pipeline libraries in system configuration configured with 'jenkins-shared-library.git' in Jenkins Managed Pipelines - system
 
 def configmap = [
     project: "expense",
     component: "backend"
 ]
 
-if( ! env.BRANCH_NAME.equalsIgnoreCase('main')){ // true, if branch is feature branch
+if( ! env.BRANCH_NAME.equalsIgnoreCase('main')){ // true, if branch is feature branch, backend-ci can have many branches like main, feature branches
     nodeJSEKSPipeline(configmap)
 }
 else{

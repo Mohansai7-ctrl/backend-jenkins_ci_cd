@@ -10,24 +10,63 @@ pipeline {
     parameters{
         choice(name: 'ENVIRONMENT', choices: ['dev', 'qa', 'uat', 'pre-prod', 'prod'], description: 'Please select any one Environment')
         string(name: 'version', description: 'Please provide the version number with which you want to deploy the app in selected environment')
+        string(name: 'jira-id',  description: 'Enter your jira id')
 
     }
     environment {
         appVersion = '' // this will become global, we can use across pipeline
         region = 'us-east-1'
-        account_id = '022499022353'
+        account_id = ''
         project = 'expense'
         environment = ''
         component = 'backend'
     }
 
     stages {
-        
-        stage('Deploy'){
+
+        stage('Setup Environment') {
             steps{
-                withAWS(region: 'us-east-1', credentials: 'aws-creds') { // by default dev environment
+                script{
+                    environment = params.ENVIRONMENT
+                    appVersion = params.version
+                    account_id = pipelineGlobals.getAccountID(environment)
+                }
+            }
+        }
+        
+        stage('Integration tests') {
+            when {
+                expression { params.ENVIRONMENT == 'qa'}
+            }
+            steps{
+                script{
                     sh """
-                        aws eks update-kubeconfig --region ${region} --name ${project}-dev 
+                        echo "Run integration tests"
+                    """
+                }
+            }
+        }
+
+        stage('Check JIRA') {  // before going to production, need to check jira status approved or not and check the deployment window, if both are fine then proceed to prod, otherwise dont proceed to prod.
+            when {
+                expression {params.ENVIRONMENT == 'prod'}
+            }
+            steps{
+                script{
+                    sh """
+                        echo "check jira status"
+                        echo "check jira deployment window"
+                        echo "fail pipeline if above two are not true"
+                    """
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps{
+                withAWS(region: 'us-east-1', credentials: 'aws-creds') { // by default dev environment, as we have single dev only, we kept as dev in below, otherwise we need to keep as ${environment}
+                    sh """
+                        aws eks update-kubeconfig --region ${region} --name ${project}-dev  
                         cd helm
                         sed -i 's/IMAGE_VERSION/$appVersion/g' values-${environment}.yaml
                         helm upgrade --install ${component} -n ${project} -f values-${environment}.yaml .
